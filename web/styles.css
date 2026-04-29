@@ -1,0 +1,229 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: #f5f5f5;
+  color: #1a1a1a;
+  font-size: 14px;
+}
+
+header {
+  background: #1a1a2e;
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+}
+header h1 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+/* ── Banner ────────────────────────────────────────────────────────── */
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1.5rem;
+  font-weight: 500;
+}
+.banner.hidden { display: none; }
+.banner-success { background: #d4edda; color: #155724; }
+.banner-error   { background: #f8d7da; color: #721c24; }
+.banner-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: inherit;
+  padding: 0 0.25rem;
+}
+
+/* ── Layout ────────────────────────────────────────────────────────── */
+main {
+  max-width: 1100px;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.panel-header h2 { margin: 0; }
+
+h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+}
+h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+/* ── Tables ────────────────────────────────────────────────────────── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+th, td {
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+th {
+  background: #f8f8f8;
+  font-weight: 600;
+  white-space: nowrap;
+}
+tr:last-child td { border-bottom: none; }
+
+/* ── Forms ─────────────────────────────────────────────────────────── */
+form, fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+fieldset {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.75rem;
+}
+legend { font-weight: 600; font-size: 0.85rem; }
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #555;
+}
+input[type="text"],
+select {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  background: #fff;
+}
+input[type="text"]:focus,
+select:focus {
+  outline: 2px solid #4a90e2;
+  border-color: transparent;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────── */
+button {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: inherit;
+  align-self: flex-start;
+}
+button:hover { background: #f0f0f0; }
+
+button[type="submit"] {
+  background: #1a1a2e;
+  color: #fff;
+  border-color: transparent;
+}
+button[type="submit"]:hover { background: #2e2e50; }
+
+.btn-reverse {
+  background: #fff3cd;
+  border-color: #ffc107;
+  color: #856404;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+}
+.btn-reverse:hover { background: #ffeeba; }
+
+/* ── Ops grid ───────────────────────────────────────────────────────── */
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+/* ── History ────────────────────────────────────────────────────────── */
+.history-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.history-controls label { flex: 1; max-width: 280px; }
+
+.history-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 700px) {
+  .history-grid { grid-template-columns: 1fr; }
+  .ops-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Audit outcome colours ─────────────────────────────────────────── */
+.outcome-success { color: #155724; font-weight: 600; }
+.outcome-failure { color: #721c24; font-weight: 600; }
+
+/* ── Utility ────────────────────────────────────────────────────────── */
+.hidden { display: none !important; }
+
+/* ── Ledger Activity panel ──────────────────────────────────────────── */
+.panel-subtitle {
+  font-size: 0.8rem;
+  color: #666;
+  margin: -0.25rem 0 0.75rem;
+}
+
+/* ── Load more button (Ledger Activity) ─────────────────────────────── */
+#all-load-more-container {
+  margin-top: 0.75rem;
+}
+#all-load-more-btn {
+  background: #f0f4ff;
+  border-color: #4a90e2;
+  color: #1a4faf;
+  padding: 0.35rem 1rem;
+}
+#all-load-more-btn:hover { background: #dce8ff; }
+
+/* ── Details/summary for create form ──────────────────────────────── */
+.form-toggle {
+  margin-top: 0.75rem;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+}
+.form-toggle summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  user-select: none;
+}
+.form-toggle form {
+  margin-top: 0.5rem;
+}

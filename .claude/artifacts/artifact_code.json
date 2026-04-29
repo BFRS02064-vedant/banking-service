@@ -1,0 +1,23 @@
+{
+  "files_modified": [
+    "internal/ledger/types.go",
+    "internal/store/transactions.go",
+    "internal/httpapi/handlers_test.go",
+    "web/index.html",
+    "web/app.js",
+    "web/styles.css",
+    "README.md"
+  ],
+  "files_created": [],
+  "files_deleted": [],
+  "build_clean": true,
+  "vet_clean": true,
+  "fmt_clean": true,
+  "scanEntry_other_locations": "Only one entry Scan call exists in transactions.go (the scanEntry helper). All four listEntries callsites delegate to it — no other direct entry Scan call sites found or needed.",
+  "deviations_from_contract": [],
+  "open_questions_for_qa": [
+    "renderTransactions renders entry lines inside the Kind cell as child divs. QA should verify layout in browser. Alternative: add a dedicated Entries column.",
+    "Both panels (Account History and Ledger Activity) now show entries inline via the shared renderTransactions function."
+  ],
+  "summary": "7 files modified per contract. (1) ledger.Entry gained AccountName string field after Direction. (2) listEntries SQL updated to JOIN accounts and scanEntry scans the 7th column into AccountName — only one Scan call site in the file, all four callsites go through scanEntry. (3) handlers_test.go: added AccountName non-empty assertion inside TestListAllTransactions_HappyPath. (4) index.html: removed view-toggle div and standalone load-more-container; added second panel 'Ledger Activity' with all-txns-body table and all-load-more-btn. (5) app.js: removed viewMode/allOffset/handleViewModeChange/DOMContentLoaded toggle wiring; added allLedgerOffset, fetchLedgerActivity, loadMoreLedger; renderTransactions generalised with targetTbodyID; entries render as 'DIRECTION amount (AccountName)' via textContent; refreshOpenHistory resets ledger to offset 0 and re-fetches both panels; init calls fetchLedgerActivity(false). (6) styles.css: removed .view-toggle/.toggle-option; added .panel-subtitle and #all-load-more-* styles. (7) README: documented AccountName field and two-panel UI. fmt/vet/build all clean. Artifact path: .claude/artifacts/artifact_code.json"
+}

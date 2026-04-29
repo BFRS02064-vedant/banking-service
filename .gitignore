@@ -8,6 +8,9 @@
 *.so
 *.dylib
 
+# Local-built binaries (e.g. `go build` output at repo root)
+/server
+
 # Test binary, built with `go test -c`
 *.test
 

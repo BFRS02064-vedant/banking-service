@@ -1,0 +1,128 @@
+{
+  "acceptance_criteria_results": [
+    {
+      "criterion": "gofmt -s -l . produces no output",
+      "status": "PASS",
+      "evidence": "artifact_tests.json fmt_clean=true; command_outputs.gofmt='(empty — all files correctly formatted, exit 0)'"
+    },
+    {
+      "criterion": "go vet ./... passes",
+      "status": "PASS",
+      "evidence": "artifact_tests.json vet_clean=true; command_outputs.go_vet='(empty — no vet issues, exit 0)'"
+    },
+    {
+      "criterion": "go build ./... succeeds",
+      "status": "PASS",
+      "evidence": "artifact_tests.json build_clean=true; command_outputs.go_build='(empty — build succeeded, exit 0)'"
+    },
+    {
+      "criterion": "Existing tests still pass: go test ./... clean (no assertion source changes required in integration_test.go or service_test.go)",
+      "status": "PASS",
+      "evidence": "artifact_tests.json test_pass=true; all 4 packages pass: httpapi 6.478s, ledger 5.343s, money cached, store 7.039s. artifact_code.json confirms integration_test.go and service_test.go were NOT modified (only handlers_test.go was touched)."
+    },
+    {
+      "criterion": "go test -race ./... still race-clean",
+      "status": "PASS",
+      "evidence": "artifact_tests.json race_clean=true; command_outputs.go_test_race shows all 4 packages ok. go_test_count_2 confirms count=2, race-clean, no flakes."
+    },
+    {
+      "criterion": "ledger.Entry struct has AccountName string field",
+      "status": "PASS",
+      "evidence": "grep confirms: internal/ledger/types.go line 73 — 'AccountName   string'"
+    },
+    {
+      "criterion": "store.listEntries query JOINs accounts: SELECT e.id, e.transaction_id, e.account_id, e.direction, e.amount, e.created_at, a.name FROM entries e JOIN accounts a ON a.id = e.account_id WHERE e.transaction_id = $1 ORDER BY e.id",
+      "status": "PASS",
+      "evidence": "grep confirms: transactions.go lines 199-201 show the SELECT with a.name at line 199 and JOIN accounts a ON a.id = e.account_id at line 201"
+    },
+    {
+      "criterion": "scanEntry Scan call gains &e.AccountName as the 7th target",
+      "status": "PASS",
+      "evidence": "transactions.go line 254: rows.Scan(&e.ID, &e.TransactionID, &e.AccountID, &dir, &amt, &e.CreatedAt, &e.AccountName) — AccountName is the 7th argument"
+    },
+    {
+      "criterion": "All existing entry-returning paths (GetTransaction, GetTransactionByIdempotencyKey, ListTransactionsForAccount, ListTransactions) populate AccountName via the same listEntries -> scanEntry helper — no separate JOIN needed elsewhere",
+      "status": "PASS",
+      "evidence": "artifact_code.json confirms only one Scan call site exists (scanEntry), all 4 listEntries callsites delegate to it. grep shows no other Scan calls for entries."
+    },
+    {
+      "criterion": "GET /api/transactions response includes account_name on each entry — verified by an updated assertion in handlers_test.go",
+      "status": "PASS",
+      "evidence": "handlers_test.go lines 779-794: TestListAllTransactions_HappyPath asserts each entry has non-empty AccountName via entry[\"AccountName\"].(string) check"
+    },
+    {
+      "criterion": "POST /api/transfers response includes account_name on each entry — verified by a new assertion in handlers_test.go",
+      "status": "PARTIAL",
+      "evidence": "handlers_test.go assertion found is in TestListAllTransactions_HappyPath (GET /api/transactions path), not in a POST /api/transfers test. artifact_code.json summary says 'added AccountName non-empty assertion inside TestListAllTransactions_HappyPath'. The contract wording requires a transfer-creation response assertion specifically — this criterion is only partially met as the GET endpoint is verified but POST /api/transfers is not explicitly tested for account_name in the response body."
+    },
+    {
+      "criterion": "Idempotency replay returns entries with AccountName populated",
+      "status": "PASS",
+      "evidence": "By construction: idempotency replay paths return entries through the same listEntries->scanEntry helper confirmed by artifact_code.json. No separate assertion required per design review gate (design_review_gate edge_cases_identified confirms 'Entries returned via the replay path also get AccountName populated because they go through listEntries')."
+    },
+    {
+      "criterion": "EXTERNAL system account entries show AccountName = 'EXTERNAL'",
+      "status": "PASS",
+      "evidence": "JOIN fetches a.name from the accounts row; design confirms EXTERNAL is stored as a row with name='EXTERNAL'. No special-case code required — JOIN returns the literal string. artifact_tests.json confirms all store tests pass including those exercising EXTERNAL account paths."
+    },
+    {
+      "criterion": "web/index.html no longer contains the radio toggle markup (.view-toggle div, lines 102-111) or the standalone load-more-container (lines 121-123)",
+      "status": "PASS",
+      "evidence": "grep -n 'view-toggle|toggle-option|view-mode|viewMode' across index.html, app.js, styles.css returned EXIT:1 (no matches) — all toggle markup fully removed"
+    },
+    {
+      "criterion": "web/index.html has two distinct panels: 'Account History' (per-account dropdown + Load + transactions table + audit table) and 'Ledger Activity' (global paginated transactions + Load more)",
+      "status": "PASS",
+      "evidence": "grep confirms index.html line 97/99: Account History panel heading; line 130/132: Ledger Activity panel heading. Both panels present."
+    },
+    {
+      "criterion": "web/app.js no longer references viewMode or toggle-related allOffset state",
+      "status": "PASS",
+      "evidence": "grep -n 'view-toggle|toggle-option|view-mode|viewMode' across app.js returned EXIT:1 (no matches). allOffset replaced by allLedgerOffset (confirmed at app.js line 276)."
+    },
+    {
+      "criterion": "Ledger Activity panel auto-loads first 50 transactions on DOMContentLoaded (or page-init equivalent)",
+      "status": "PASS",
+      "evidence": "app.js line 326: fetchLedgerActivity(false) called at module init (top-level, equivalent to DOMContentLoaded for script-deferred execution). Function confirmed at lines 279-298."
+    },
+    {
+      "criterion": "Successful mutation (transfer/deposit/reverse) refreshes BOTH panels — open per-account history (if any) AND Ledger Activity offset=0",
+      "status": "PASS",
+      "evidence": "app.js lines 315-318: allLedgerOffset=0, clear all-txns-body, fetchLedgerActivity(false) — Ledger Activity reset and re-fetched after mutation. refreshOpenHistory pattern also confirmed in artifact_code.json summary."
+    },
+    {
+      "criterion": "Frontend renders each entry as 'DEBIT amount (AccountName)' / 'CREDIT amount (AccountName)' using element.textContent (XSS safe), no parseFloat",
+      "status": "PASS",
+      "evidence": "app.js lines 226-231: comment confirms pattern; line 231: div.textContent = entry.Direction + ' ' + entry.Amount + ' (' + entry.AccountName + ')'. No innerHTML or parseFloat usage found in the rendering path."
+    },
+    {
+      "criterion": "README API table notes that Entry includes account_name",
+      "status": "PASS",
+      "evidence": "README.md line 130: 'includes an AccountName field — the display name of the account on that leg'; line 132: example entry shape with AccountName. Line 379 also documents UI rendering format."
+    },
+    {
+      "criterion": "No interface changes — Storer interface remains identical; ListTransactionsOpts unchanged",
+      "status": "PASS",
+      "evidence": "artifact_code.json deviations_from_contract=[] and files_modified list does not include any interface definition file. artifact_code.json summary confirms only types.go Entry struct and transactions.go scanEntry/listEntries were changed in the store layer — no interface modifications."
+    }
+  ],
+  "scope_guardrails_respected": true,
+  "scope_guardrail_violations": [],
+  "fmt_clean": true,
+  "vet_clean": true,
+  "build_clean": true,
+  "test_pass": true,
+  "race_clean": true,
+  "ui_redesign_complete": true,
+  "total_qa_iterations": 1,
+  "must_fix": [],
+  "should_fix": [
+    {
+      "severity": "minor",
+      "criterion": "POST /api/transfers response includes account_name on each entry",
+      "detail": "The handlers_test.go AccountName assertion targets TestListAllTransactions_HappyPath (GET /api/transactions). The contract specifically called for a transfer-creation (POST /api/transfers) response assertion. Coverage of the GET path gives strong confidence AccountName is populated end-to-end (same listEntries path), but the transfer response is not explicitly asserted in a test. Consider adding one assertion to the existing happy-path transfer test for completeness."
+    }
+  ],
+  "nice_to_have": [],
+  "summary": "19/20 acceptance criteria PASS. 1 PARTIAL: POST /api/transfers account_name assertion targets GET /api/transactions instead — functional risk is negligible (same code path) but the literal contract wording is unmet. 0 must-fix items. fmt/vet/build/test/race all clean. Artifact: /Users/vedantgadhvi/Desktop/Codebase/banking-service/.claude/artifacts/artifact_qa.json"
+}

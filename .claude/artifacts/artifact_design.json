@@ -1,0 +1,137 @@
+{
+  "design_review_gate": {
+    "feature_summary": "M9 redesigns the history section of the UI from a confusing toggle to two distinct panels, and enriches each Entry in API responses with an AccountName field populated via SQL JOIN. Account History shows per-account transactions + audit (existing behaviour). Ledger Activity shows global paginated transactions (existing /api/transactions endpoint) with Load more. Frontend renders entries with the joined name; users can read 'DEBIT 100.0000 (Alice)' instead of a raw UUID. EXTERNAL system account appears as the literal name 'EXTERNAL'. No schema changes. Existing write-side test fixtures (InsertEntries call-sites) need zero changes — Go zero-value fills the new field. handlers_test.go has no Entry-field response assertions today; a new assertion for account_name will be added.",
+    "critical_issues": [],
+    "major_concerns": [
+      {
+        "concern": "Public API shape change: Entry gains AccountName field",
+        "detail": "Every endpoint that returns transactions with entries inline (POST /api/transfers response, POST /api/transfers/{id}/reverse, POST /api/deposits, GET /api/accounts/{id}/transactions, GET /api/transactions, idempotency replay paths) will now include AccountName in each entry. Existing test assertions that compare full Entry objects must be updated. Verification confirmed: InsertEntries call-sites in integration_test.go use partial struct literals — Go zero-value handles the new field cleanly with no source change. handlers_test.go currently has no Entry-field response assertions; only a new assertion needs adding.",
+        "recommendation": "Audit handlers_test.go, service_test.go, and store integration_test.go. Result: integration_test.go and service_test.go need zero changes. handlers_test.go needs one new assertion added (not an update). Minimal blast radius."
+      },
+      {
+        "concern": "listEntries called from four callsites — JOIN must be applied consistently via scanEntry",
+        "detail": "Verified: listEntries (line 195) is called from 4 callsites (lines 121, 144, 185, 319). It delegates scan to scanEntry (line 242). Adding AccountName to the JOIN query and to scanEntry.Scan() propagates to all four callsites for free — no per-callsite change.",
+        "recommendation": "Modify listEntries query to JOIN accounts. Modify scanEntry to add &e.AccountName as the 7th Scan target. Those two changes cover all entry-returning paths."
+      },
+      {
+        "concern": "Removing the toggle wiring may break tests that asserted on UI elements that no longer exist",
+        "detail": "Verified: there is no frontend test suite. Dropping the toggle is safe.",
+        "recommendation": "No action needed for tests."
+      }
+    ],
+    "minor_suggestions": [
+      {"suggestion": "Frontend should render account names with element.textContent (XSS safety) — same pattern as existing render code."},
+      {"suggestion": "Two panels should be visually distinct (border, heading) so users immediately understand they are separate sections."},
+      {"suggestion": "Account History panel keeps existing 'Account dropdown + Load' pattern. Ledger Activity panel auto-loads first 50 transactions on page load and shows Load more."},
+      {"suggestion": "When an operation succeeds (transfer/deposit/reverse), refresh BOTH panels: re-fetch the open per-account history (if any) AND reset Ledger Activity to offset 0 + re-fetch first page."},
+      {"suggestion": "README API table should note that Entry now includes account_name."}
+    ],
+    "clarifying_questions": [],
+    "concurrency_risks": [],
+    "money_correctness_risks": [],
+    "api_contract_gaps": [
+      {
+        "gap": "Entry.AccountName is added to all entry-returning responses. This is technically a non-breaking additive change for clients that don't read the field, but a strict JSON-schema consumer might fail on unexpected fields.",
+        "recommendation": "Document in README API table. Acceptable for take-home — no real external consumers."
+      }
+    ],
+    "edge_cases_identified": [
+      {"scenario": "Entry whose account was deleted (hypothetical)", "expected_behavior": "JOIN would return no row; entry is dropped from results. In our system accounts are never deleted, so this is theoretical. No special handling needed.", "specified": true},
+      {"scenario": "Entry referencing EXTERNAL system account", "expected_behavior": "AccountName = 'EXTERNAL' (literal string from accounts.name). UI renders this literally — no special hiding.", "specified": true},
+      {"scenario": "Idempotency replay returns existing transaction with entries", "expected_behavior": "Entries returned via the replay path also get AccountName populated because they go through listEntries.", "specified": true},
+      {"scenario": "Concurrent UI: user submits a transfer while Ledger Activity panel is showing offset=50", "expected_behavior": "After mutation success, frontend resets Ledger Activity to offset=0 and re-fetches. The user sees the new transaction at the top of the list.", "specified": true}
+    ],
+    "implementation_ready": true,
+    "confidence_score": 0.93
+  },
+  "change_contract": {
+    "files_to_modify": [
+      "internal/ledger/types.go",
+      "internal/store/transactions.go",
+      "internal/httpapi/handlers_test.go",
+      "web/index.html",
+      "web/app.js",
+      "web/styles.css",
+      "README.md"
+    ],
+    "files_to_create": [],
+    "files_to_delete": [],
+    "scope_guardrails": {
+      "forbidden_files": "Any file under migrations/, cmd/, internal/money/. internal/store/integration_test.go (write-side fixtures need zero change). internal/ledger/service_test.go (same — zero change). Any new file. The .dockerignore, Dockerfile, docker-compose.yml, .env.example.",
+      "forbidden_actions": [
+        "Schema changes (no ALTER TABLE)",
+        "New Go dependencies",
+        "Adding any new endpoint",
+        "Adding cursor pagination, account_id filter, or other features beyond the locked G1/G2 scope",
+        "Re-introducing any toggle / radio button / tab UI for the History panel",
+        "Storing AccountName in the entries table (it stays as a runtime JOIN — no schema change)"
+      ]
+    },
+    "public_api_changes": true,
+    "storage_schema_changes": false,
+    "concurrency_strategy": "unchanged — read-only JOIN under READ COMMITTED; no locks required",
+    "estimated_risk": "medium",
+    "test_strategy": "Verified: existing write-side Entry fixtures in integration_test.go use partial struct literals — Go zero-value fills AccountName, no source change needed. handlers_test.go has no current Entry-field response assertions; add one explicit assertion that account_name appears in a transfer-creation response. No new test files. Race check: JOIN is read-only under READ COMMITTED — race-clean by construction.",
+    "rollback_strategy": "Pure git revert. No DB schema, no new files, no new endpoints. AccountName field can be hidden by removing the JOIN clause and the Scan target from scanEntry.",
+    "acceptance_criteria": [
+      "gofmt -s -l . produces no output",
+      "go vet ./... passes",
+      "go build ./... succeeds",
+      "Existing tests still pass: go test ./... clean (no assertion source changes required in integration_test.go or service_test.go)",
+      "go test -race ./... still race-clean",
+      "ledger.Entry struct has AccountName string field",
+      "store.listEntries query JOINs accounts: SELECT e.id, e.transaction_id, e.account_id, e.direction, e.amount, e.created_at, a.name FROM entries e JOIN accounts a ON a.id = e.account_id WHERE e.transaction_id = $1 ORDER BY e.id",
+      "scanEntry Scan call gains &e.AccountName as the 7th target",
+      "All existing entry-returning paths (GetTransaction, GetTransactionByIdempotencyKey, ListTransactionsForAccount, ListTransactions) populate AccountName via the same listEntries -> scanEntry helper — no separate JOIN needed elsewhere",
+      "GET /api/transactions response includes account_name on each entry — verified by an updated assertion in handlers_test.go",
+      "POST /api/transfers response includes account_name on each entry — verified by a new assertion in handlers_test.go",
+      "Idempotency replay returns entries with AccountName populated",
+      "EXTERNAL system account entries show AccountName = 'EXTERNAL'",
+      "web/index.html no longer contains the radio toggle markup (.view-toggle div, lines 102-111) or the standalone load-more-container (lines 121-123)",
+      "web/index.html has two distinct panels: 'Account History' (per-account dropdown + Load + transactions table + audit table) and 'Ledger Activity' (global paginated transactions + Load more)",
+      "web/app.js no longer references viewMode or toggle-related allOffset state",
+      "Ledger Activity panel auto-loads first 50 transactions on DOMContentLoaded (or page-init equivalent)",
+      "Successful mutation (transfer/deposit/reverse) refreshes BOTH panels — open per-account history (if any) AND Ledger Activity offset=0",
+      "Frontend renders each entry as 'DEBIT amount (AccountName)' / 'CREDIT amount (AccountName)' using element.textContent (XSS safe), no parseFloat",
+      "README API table notes that Entry includes account_name",
+      "No interface changes — Storer interface remains identical; ListTransactionsOpts unchanged"
+    ],
+    "implementation_plan": [
+      {
+        "step": 1,
+        "file": "internal/ledger/types.go",
+        "action": "Add AccountName string field to the Entry struct (line ~68). No JSON tag — matches existing PascalCase convention. ~1 line change."
+      },
+      {
+        "step": 2,
+        "file": "internal/store/transactions.go",
+        "action": "Two sub-changes: (a) Replace the query constant inside listEntries (line ~197) with: SELECT e.id, e.transaction_id, e.account_id, e.direction, e.amount, e.created_at, a.name FROM entries e JOIN accounts a ON a.id = e.account_id WHERE e.transaction_id = $1 ORDER BY e.id. (b) In scanEntry (line 242), add &e.AccountName as the 7th argument to rows.Scan(). The JOIN never returns NULL since account_id is a NOT NULL FK. ~5 lines change total."
+      },
+      {
+        "step": 3,
+        "file": "internal/httpapi/handlers_test.go",
+        "action": "Add one new assertion to an existing transfer test (e.g. the happy-path transfer test) asserting that the response body contains account_name on each entry. No existing assertions need to be removed or rewritten — handlers_test.go currently asserts only on request body fields (dst_account_id), not on response Entry shape. ~10 lines added."
+      },
+      {
+        "step": 4,
+        "file": "web/index.html",
+        "action": "Remove the .view-toggle div (lines 102-111) and the standalone load-more-container div (lines 121-123). Rename the existing panel heading from 'Account History' to clarify it is per-account. Add a new 'Ledger Activity' section below the history-grid with its own table (id='all-txns-body') and Load more button. ~30-40 lines change (removes ~12, adds ~25)."
+      },
+      {
+        "step": 5,
+        "file": "web/app.js",
+        "action": "Remove handleViewModeChange, viewMode, and toggle-attached allOffset state. Add Ledger Activity panel: on DOMContentLoaded fetch /api/transactions?limit=50 and render into #all-txns-body using element.textContent. Track a panel-local ledgerOffset variable. Wire Load more button to fetch next page with ledgerOffset += 50 and append rows; hide button when response.length < 50. Update each entry rendering call to display entry.AccountName in parentheses after the amount. Update post-mutation refresh logic to also reset ledgerOffset = 0 and re-fetch Ledger Activity first page. ~60 lines net change."
+      },
+      {
+        "step": 6,
+        "file": "web/styles.css",
+        "action": "Remove .view-toggle and .toggle-option styles. Add styles for the two distinct panels (border, heading spacing). ~15 lines change."
+      },
+      {
+        "step": 7,
+        "file": "README.md",
+        "action": "Update API table to note that each entry includes account_name (string, account display name populated via JOIN). Update UI walkthrough to mention the two history panels. ~5-10 lines change."
+      }
+    ]
+  }
+}

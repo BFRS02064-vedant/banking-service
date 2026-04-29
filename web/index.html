@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Banking Service</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+
+<header>
+  <h1>Banking Service</h1>
+</header>
+
+<!-- Status banner: shown on success (green) or error (red) -->
+<div id="banner" class="banner hidden" role="alert">
+  <span id="banner-msg"></span>
+  <button class="banner-close" onclick="hideBanner()">x</button>
+</div>
+
+<main>
+
+  <!-- ── Accounts panel ─────────────────────────────────────────────── -->
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Accounts</h2>
+      <button onclick="fetchAccounts()">Refresh</button>
+    </div>
+    <table id="accounts-table">
+      <thead>
+        <tr><th>ID</th><th>Name</th><th>Balance (INR)</th></tr>
+      </thead>
+      <tbody id="accounts-body"></tbody>
+    </table>
+
+    <details class="form-toggle">
+      <summary>Create Account</summary>
+      <form id="create-account-form" onsubmit="handleCreateAccount(event)">
+        <label>Name
+          <input type="text" id="account-name" placeholder="e.g. Alice" required />
+        </label>
+        <button type="submit">Create</button>
+      </form>
+    </details>
+  </section>
+
+  <!-- ── Operations panel ──────────────────────────────────────────── -->
+  <section class="panel">
+    <h2>Operations</h2>
+    <div class="ops-grid">
+
+      <!-- Transfer -->
+      <fieldset>
+        <legend>Transfer</legend>
+        <form id="transfer-form" onsubmit="handleTransfer(event)">
+          <label>From
+            <select id="transfer-src"></select>
+          </label>
+          <label>To
+            <select id="transfer-dst"></select>
+          </label>
+          <label>Amount
+            <input type="text" id="transfer-amount" placeholder="100.00" required />
+          </label>
+          <button type="submit">Send</button>
+        </form>
+      </fieldset>
+
+      <!-- Deposit -->
+      <fieldset>
+        <legend>Deposit</legend>
+        <form id="deposit-form" onsubmit="handleDeposit(event)">
+          <label>To
+            <select id="deposit-dst"></select>
+          </label>
+          <label>Amount
+            <input type="text" id="deposit-amount" placeholder="500.00" required />
+          </label>
+          <button type="submit">Deposit</button>
+        </form>
+      </fieldset>
+
+      <!-- Reverse by ID -->
+      <fieldset>
+        <legend>Reverse by Transaction ID</legend>
+        <form id="reverse-form" onsubmit="handleReverseById(event)">
+          <label>Transaction ID
+            <input type="text" id="reverse-txid" placeholder="UUID of TRANSFER transaction" required />
+          </label>
+          <button type="submit">Reverse</button>
+        </form>
+      </fieldset>
+
+    </div>
+  </section>
+
+  <!-- ── Account History panel ──────────────────────────────────── -->
+  <section class="panel">
+    <h2>Account History</h2>
+
+    <div class="history-controls" id="per-account-controls">
+      <label>Account
+        <select id="history-account"></select>
+      </label>
+      <button onclick="loadHistory()">Load</button>
+    </div>
+
+    <div class="history-grid">
+      <div>
+        <h3>Transactions</h3>
+        <table id="txns-table">
+          <thead>
+            <tr><th>ID</th><th>Kind</th><th>Date</th><th>Action</th></tr>
+          </thead>
+          <tbody id="txns-body"></tbody>
+        </table>
+      </div>
+      <div>
+        <h3>Audit Log</h3>
+        <table id="audit-table">
+          <thead>
+            <tr><th>Op</th><th>Outcome</th><th>Amount</th><th>Reason</th><th>Date</th></tr>
+          </thead>
+          <tbody id="audit-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Ledger Activity panel ──────────────────────────────────── -->
+  <section class="panel">
+    <h2>Ledger Activity</h2>
+    <p class="panel-subtitle">Global transaction ledger — most recent first. Each entry shows direction, amount, and account name.</p>
+
+    <table id="all-txns-table">
+      <thead>
+        <tr><th>ID</th><th>Kind</th><th>Entries</th><th>Date</th><th>Action</th></tr>
+      </thead>
+      <tbody id="all-txns-body"></tbody>
+    </table>
+
+    <div id="all-load-more-container" class="hidden">
+      <button id="all-load-more-btn" onclick="loadMoreLedger()">Load more</button>
+    </div>
+  </section>
+
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
